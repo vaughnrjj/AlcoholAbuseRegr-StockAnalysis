@@ -1,0 +1,536 @@
+---
+title: "STAT 4310 - Project"
+author: "Group E: Chineze Embodi, Vaughn Jorgensen, Braxton Wilson"
+date: "2023-04-26"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+```{r, warning=FALSE, message=FALSE, include=FALSE}
+library(wooldridge)
+library(kableExtra)
+library(ggplot2)
+library(quantmod)
+```
+
+## Introduction
+
+**The Alcohol data set comes from the Woolridge package. It contains 33 variables with 9822 observations. Some of these variables include alcohol abuse, employment status, age, years of schooling, marital status, family size, and more.**
+
+## Alcohol Data 
+
+**The alcohol data contains several (20) categorical variables (status, married, white, exhealth, vghealth, goodhealth, fairhealth, northeast, midwest, south, centcity, outercity, qrt1, qrt2, qrt3, mothalc, fathalc, livealc, inwf, employ), but only status will be converted to a factor since all other categorical variables only have two levels. There are no missing values in any of the columns.**
+
+```{r echo=FALSE}
+data("alcohol")
+
+metadata <- data.frame(Variable = c("abuse", "status", "unemrate", "age", "educ", "married", "famsize", "white", "exhealth", "vghealth", "goodhealth", "fairhealth", "northeast", "midwest", "south", "centcity", "outercity", "qrt1", "qrt2", "qrt3", "beertax", "cigtax", "ethanol", "mothalc", "fathalc", "livealc", "inwf", "employ", "agesq", "beertaxsq", "cigtaxsq", "ethanolsq", "educsq"), 
+                       Description =  c(' = 1 if abuse alcohol',' out of workforce = 1; unemployed = 2, employed = 3',' state unemployment rate',' age in years',' years of schooling',' = 1 if married',' family size',' = 1 if white',' = 1 if in excellent health',' = 1 if in very good health',' = 1 if in good health',' = 1 if in fair health',' = 1 if live in northeast',' = 1 if live in midwest',' = 1 if live in south',' = 1 if live in central city of MSA',' = 1 if in outer city of MSA',' = 1 if interviewed in first quarter',' = 1 if interviewed in second quarter',' = 1 if interviewed in third quarter',' state excise tax, $ per gallon',' state cigarette tax, cents per pack',' state per-capita ethanol consumption',' = 1 if mother an alcoholic',' = 1 if father an alcoholic',' = 1 if lived with alcoholic',' = 1 if status > 1','  = 1 if employed', ' age^2', ' beertax^2', ' cigtax^2', ' ethanol^2', ' educ^2'))
+
+kable_styling(kbl(metadata, booktabs = T, format = "latex"), latex_options = "striped")
+```
+
+\newpage
+
+```{r echo=FALSE}
+colSums(is.na(alcohol)) # no NA in any columns
+
+str(alcohol)
+
+# getting rid of squared attributes
+gross <- c("agesq", "beertaxsq", "cigtaxsq", "ethanolsq", "educsq")
+alcohol <- alcohol[ , !names(alcohol) %in% gross]
+
+# converting binary/categorical variables into factors
+alcohol$status <- as.factor(alcohol$status)
+# alcohol$married <- as.factor(alcohol$married)
+# alcohol$white <- as.factor(alcohol$white)
+# alcohol$exhealth <- as.factor(alcohol$exhealth)
+# alcohol$vghealth <- as.factor(alcohol$vghealth)
+# alcohol$goodhealth <- as.factor(alcohol$goodhealth)
+# alcohol$fairhealth <- as.factor(alcohol$fairhealth)
+# alcohol$northeast <- as.factor(alcohol$northeast)
+# alcohol$midwest <- as.factor(alcohol$midwest)
+# alcohol$south <- as.factor(alcohol$south)
+# alcohol$centcity <- as.factor(alcohol$centcity)
+# alcohol$outercity <- as.factor(alcohol$outercity)
+# alcohol$qrt1 <- as.factor(alcohol$qrt1)
+# alcohol$qrt2 <- as.factor(alcohol$qrt2)
+# alcohol$qrt3 <- as.factor(alcohol$qrt3)
+# alcohol$mothalc <- as.factor(alcohol$mothalc)
+# alcohol$fathalc <- as.factor(alcohol$fathalc)
+# alcohol$livealc <- as.factor(alcohol$livealc)
+# alcohol$inwf <- as.factor(alcohol$inwf)
+# alcohol$employ <- as.factor(alcohol$employ)
+
+head(alcohol)
+```
+
+
+```{r}
+table(alcohol$abuse) # count for yes/1 vs no/0 alcohol abuse
+```
+
+**In our data set, we can see that there are 8848 observations of individuals who do not abuse alcohol (0) and 974 observations of alcohol abusers (1). This severe class imbalance may prove to be an issue.**
+
+\newpage 
+
+## Regression Analysis
+
+**In our regression analysis, we will be using the abuse variable as our response and all others as predictors (excluding squared variables). The abuse variable will tell is if alcohol is abused (1) or if alcohol is not abused (0). Abuse was chosen as the response because it stands out as the best option based on the other variables in this data set. Additionally, it would be interesting to see which variables are determining factors in alcohol abuse.**  
+
+**We will be utilizing the generalized linear model with a binomial distribution. This way, we can perform logistic regression on our categorical response variable.**
+
+```{r}
+model <- glm(abuse ~ ., family = "binomial", data = alcohol)
+summary(model)
+
+rsefull <- sqrt(deviance(model)/df.residual(model))
+rsefull
+
+# McFadden's R^2 -- Excellent fit considered to be 0.2-0.4
+rsquafull <- with(summary(model), 1- deviance/null.deviance)
+rsquafull
+```
+
+**In our full model, the variables that are statistically significant to our model at the 5% significance level are educ, famsize, white, centcity, ethanol, mothalc, and fathalc. Note the AIC score of 6248.1 which we will compare to our other models. The standard error using deviance and df comes out to 0.795. McFadden's $R^2$ comes out to 0.025 (good fit considered to be 0.2-0.4).**
+
+```{r}
+modred <- step(model, trace = 0)
+summary(modred)
+
+# RSE
+rse <- sqrt(deviance(modred)/df.residual(modred))
+rse
+
+# McFadden's R^2 -- Excellent fit considered to be 0.2-0.4
+rsqua <- with(summary(modred), 1- deviance/null.deviance)
+rsqua
+```
+
+**After reducing our model, we went from 28 variables to 9 variables. This leaves us with the variables educ, famsize, white, exhealth, centcity, cigtax, ethanol, mothalc, and fathalc. The AIC dropped from 6248.1 to 6220.7 which may mostly be due to a decrease in variables. The RSE remained the same (0.795) but the McFadden's $R^2$ actually decreased to 0.023.**
+
+```{r}
+# residuals
+res <- residuals(modred, type = "deviance")
+qqnorm(res) # Should have normal distribution if model fits
+qqline(res) # they do not...
+plot(res) # should be around 0--if not they may be outliers
+```
+
+**The residuals of our model should have a normal distribution if our model fits; however, we can see that based on our qqplot that our model is not adequate. Additionally, we can see in our residual plot that many of our values are not close to 0 which promotes our models inadequacy and may suggest outliers. Let's investigate using cooks distance.**
+
+```{r}
+# cooks distance
+cooks <- cooks.distance(modred)
+plot(cooks) # lots of outliers
+summary(cooks)
+table(alcohol[cooks < 1.846e-05, "abuse"])
+table(alcohol[cooks < 0.00085, "abuse"])
+
+model2 <- glm(abuse ~ ., family = "binomial", data = subset(alcohol, cooks < 0.00085)) 
+# 1.846e-05 from Q3--could not converge so chose number low enough to not get warning
+modred2 <- step(model2, trace = 0)
+summary(modred2)
+
+# RSE
+rse.cook <- sqrt(deviance(modred2)/df.residual(modred2))
+rse.cook
+
+# R^2
+rsqua.cook <- with(summary(modred2), 1- deviance/null.deviance)
+rsqua.cook # 0.023 => 0.089 -- slight improvement
+
+rescook <- residuals(modred2, type = "deviance")
+qqnorm(rescook) # Should have normal distribution if model fits
+qqline(rescook) # they do not...
+plot(rescook) # should be around 0
+```
+
+**Using cooks distance, our models AIC dropped even more from 6220.7 to 4121.8. The RSE also decreased from 0.795 to 0.659, and the McFadden's $R^2$ increased from 0.023 to 0.089. When investigating the residuals, they still are not normal or around 0; however, it is an improvement. We could definitely improve our model further if there were more abuse = 1 observations in our data set in order to get a model to converge with a smaller subset.**
+
+```{r}
+## fitted values in probabilities
+fitted.values <- modred2$fitted.values
+
+## prediction using 0,1
+fitted <- ifelse(fitted.values >.5, 1,0)
+
+table(alcohol[cooks < 0.00085, "abuse"], fitted)
+```
+
+------------------------------------------------------------------------------------------
+
+\newpage
+
+# Stock Analysis
+
+
+```{r echo = FALSE}
+## 2 year period will be from 2021 to 2022
+start <- as.Date("2020-12-31")
+end <- as.Date("2022-12-31")
+
+### Will comopare 3 energy companies
+## stock 1 - Sclumberger Ltd. (SLB)
+SLB <- getSymbols("SLB", from = start, to = end, auto.assign = F)
+SLB.close <- SLB$SLB.Close
+SLB.return <- dailyReturn(SLB.close)
+# annualized return
+SLB.mu.ann <- mean(SLB.return) * 252
+# annualized risk
+SLB.sd.ann <- sd(SLB.return) * sqrt(252)
+
+## stock 2 - Halliburton Company (HAL)
+HAL <- getSymbols("HAL", from = start, to = end, auto.assign = F)
+HAL.close <- HAL$HAL.Close
+HAL.return <- dailyReturn(HAL.close)
+# annualized return
+HAL.mu.ann <- mean(HAL.return) * 252
+# annualized risk
+HAL.sd.ann <- sd(HAL.return) * sqrt(252)
+
+## stock 3 - CenterPoint Energy Inc (CNP)
+CNP <- getSymbols("CNP", from = start, to = end, auto.assign = F)
+CNP.close <- CNP$CNP.Close
+CNP.return <- dailyReturn(CNP.close)
+# annualized return
+CNP.mu.ann <- mean(CNP.return) * 252
+# annualized risk
+CNP.sd.ann <- sd(CNP.return) * sqrt(252)
+```
+
+```{r echo = FALSE}
+bench <- getSymbols.yahoo("^GSPC", from = start, to = end, periodicity = "daily", auto.assign = F)[ , 4]
+bench.returns <- dailyReturn(bench) 
+
+bench.CP <- cumprod(1 + bench.returns)
+# Closing Price Plots for SLB, HAL, CNP
+SLB.CP <- cumprod(1 + SLB.return)
+HAL.CP <- cumprod(1 + HAL.return)
+CNP.CP <- cumprod(1 + CNP.return)
+
+# enplot <- plot(SLB.CP, type = "l", ylim = c(0, 3), col = "blue", main = "Closing Prices: SLB-Blue, HAL-Red, CNP-Green")
+# enplot <- lines(HAL.CP, type = "l", col = "red")
+# enplot <- lines(CNP.CP, type = "l", col = "green")
+# enplot
+# 
+# enplotb <- plot(bench.CP, type = "l", ylim = c(0, 3), col = "black", main = "CP: Market-Black, SLB-Blue, HAL-Red, CNP-Green")
+# enplotb <- lines(SLB.CP, type = "l", col = "blue")
+# enplotb <- lines(HAL.CP, type = "l", col = "red")
+# enplotb <- lines(CNP.CP, type = "l", col = "green")
+# enplotb
+#legend("topleft", legend = c("SLB", "HAL", "CNP"), fill = c("blue", "red", "green"), title = "stocks")
+```
+
+
+
+```{r echo = FALSE}
+## Reading Treasury Risk-free rate
+# daily risk-free data
+ff <- read.csv(file.choose(), head = T, skip = 4) # choose ffdaily data
+ff.date <- as.Date(ff$X, format = "%Y%m%d")
+ff$date <- ff.date
+ff.new <- ff[ff$date >= start & ff$date <= end, ]
+#head(ff.new)
+
+# SLB
+SLB.Ret.df <- data.frame(SLB.return)
+SLB.Ret.df$date <- index(SLB.return)
+SLB.data <- merge(SLB.Ret.df, ff.new, by.x = "date", all.x = T)
+
+# HAL
+HAL.Ret.df <- data.frame(HAL.return)
+HAL.Ret.df$date <- index(HAL.return)
+HAL.data <- merge(HAL.Ret.df, ff.new, by.x = "date", all.x = T)
+
+# CNP
+CNP.Ret.df <- data.frame(CNP.return)
+CNP.Ret.df$date <- index(CNP.return)
+CNP.data <- merge(CNP.Ret.df, ff.new, by.x = "date", all.x = T)
+
+## Benchmark return
+# annualized return
+bench.mu.ann <- mean(bench.returns) * 252
+# annualized risk
+bench.sd.ann <- sd(bench.returns) * sqrt(252)
+
+## beta & r^2
+ff.newnew <- head(ff.new, -2) # last 2 rows are NA
+# benchmark excess
+bench.excess <- bench.returns - ff.newnew$RF
+
+# SLB
+SLB.excess <- SLB.return - ff.newnew$RF
+SLB.beta <- coefficients(lm(SLB.excess ~ bench.excess))[2]
+SLB.r2 <- summary(lm(SLB.excess ~ bench.excess))$r.squared
+
+# HAL
+HAL.excess <- HAL.return - ff.newnew$RF
+HAL.beta <- coefficients(lm(HAL.excess ~ bench.excess))[2]
+HAL.r2 <- summary(lm(HAL.excess ~ bench.excess))$r.squared
+
+# CNP
+CNP.excess <- CNP.return - ff.newnew$RF
+CNP.beta <- coefficients(lm(CNP.excess ~ bench.excess))[2]
+CNP.r2 <- summary(lm(CNP.excess ~ bench.excess))$r.squared
+
+# PE ratio from yahoo finance
+PESLB <- 22.02
+PEHAL <- 19.72
+PECNP <- 19.19
+
+SLByahbeta <- 1.78
+HALyahbeta <- 2.13
+CNPyahbeta <- 0.88
+```
+
+
+```{r echo=FALSE}
+### Braxton stocks
+## ann return and risk
+## stock 1 - Lowes (LOW)
+LOW <- getSymbols("LOW", from = start, to = end, auto.assign = F)
+LOW.close <- LOW$LOW.Close
+LOW.return <- dailyReturn(LOW.close)
+# annualized return
+LOW.mu.ann <- mean(LOW.return) * 252
+# annualized risk
+LOW.sd.ann <- sd(LOW.return) * sqrt(252)
+
+## stock 2 - Target (TGT)
+TGT <- getSymbols("TGT", from = start, to = end, auto.assign = F)
+TGT.close <- TGT$TGT.Close
+TGT.return <- dailyReturn(TGT.close)
+# annualized return
+TGT.mu.ann <- mean(TGT.return) * 252
+# annualized risk
+TGT.sd.ann <- sd(TGT.return) * sqrt(252)
+
+## stock 3 - Wal-Mart (WMT)
+WMT <- getSymbols("WMT", from = start, to = end, auto.assign = F)
+WMT.close <- WMT$WMT.Close
+WMT.return <- dailyReturn(WMT.close)
+# annualized return
+WMT.mu.ann <- mean(WMT.return) * 252
+# annualized risk
+WMT.sd.ann <- sd(WMT.return) * sqrt(252)
+
+## Closing Price Plot
+# Closing Price Plots for LOW, TGT, WMT
+LOW.CP <- cumprod(1 + LOW.return)
+TGT.CP <- cumprod(1 + TGT.return)
+WMT.CP <- cumprod(1 + WMT.return)
+
+# stoplot <- plot(LOW.CP, type = "l", ylim = c(0, 3), col = "blue", main = "Closing Prices: LOW-Blue, TGT-Red, WMT-Green")
+# stoplot <- lines(TGT.CP, type = "l", col = "red")
+# stoplot <- lines(WMT.CP, type = "l", col = "green")
+# stoplot
+#  # compared to market
+# stoplotb <- plot(bench.CP, type = "l", ylim = c(0, 3), col = "black", main = "CP: Market-Black, LOW-Blue, TGT-Red, WMT-Green")
+# stoplotb <- lines(LOW.CP, type = "l", col = "blue")
+# stoplotb <- lines(TGT.CP, type = "l", col = "red")
+# stoplotb <- lines(WMT.CP, type = "l", col = "green")
+# stoplotb
+
+# beta and p/e
+# LOW
+LOW.Ret.df <- data.frame(LOW.return)
+LOW.Ret.df$date <- index(LOW.return)
+LOW.data <- merge(LOW.Ret.df, ff.new, by.x = "date", all.x = T)
+
+# TGT
+TGT.Ret.df <- data.frame(TGT.return)
+TGT.Ret.df$date <- index(TGT.return)
+TGT.data <- merge(TGT.Ret.df, ff.new, by.x = "date", all.x = T)
+
+# WMT
+WMT.Ret.df <- data.frame(WMT.return)
+WMT.Ret.df$date <- index(WMT.return)
+WMT.data <- merge(WMT.Ret.df, ff.new, by.x = "date", all.x = T)
+## beta & r^2
+
+# LOW
+LOW.excess <- LOW.return - ff.newnew$RF
+LOW.beta <- coefficients(lm(LOW.excess ~ bench.excess))[2]
+
+# TGT
+TGT.excess <- TGT.return - ff.newnew$RF
+TGT.beta <- coefficients(lm(TGT.excess ~ bench.excess))[2]
+
+# WMT
+WMT.excess <- WMT.return - ff.newnew$RF
+WMT.beta <- coefficients(lm(WMT.excess ~ bench.excess))[2]
+
+PELOW <- 20.75
+PETGT <- 27.12
+PEWMT <- 35.53
+
+LOWyahbeta <- 1.07
+TGTyahbeta <- 1.02
+WMTyahbeta <- 0.49
+```
+
+
+```{r echo=FALSE}
+### Chineze stocks
+## ann return and risk
+## stock 1 - MGM Resorts International (MGM)
+MGM <- getSymbols("MGM", from = start, to = end, auto.assign = F)
+MGM.close <- MGM$MGM.Close
+MGM.return <- dailyReturn(MGM.close)
+# annualized return
+MGM.mu.ann <- mean(MGM.return) * 252
+# annualized risk
+MGM.sd.ann <- sd(MGM.return) * sqrt(252)
+
+## stock 2 - First Republic Bank (FRC)
+FRC <- getSymbols("FRC", from = start, to = end, auto.assign = F)
+FRC.close <- FRC$FRC.Close
+FRC.return <- dailyReturn(FRC.close)
+# annualized return
+FRC.mu.ann <- mean(FRC.return) * 252
+# annualized risk
+FRC.sd.ann <- sd(FRC.return) * sqrt(252)
+
+## stock 3 - Southwest Airlines Co. (LUV)
+LUV <- getSymbols("LUV", from = start, to = end, auto.assign = F)
+LUV.close <- LUV$LUV.Close
+LUV.return <- dailyReturn(LUV.close)
+# annualized return
+LUV.mu.ann <- mean(LUV.return) * 252
+# annualized risk
+LUV.sd.ann <- sd(LUV.return) * sqrt(252)
+
+## Closing Price Plot
+# Closing Price Plots for MGM, FRC, LUV
+MGM.CP <- cumprod(1 + MGM.return)
+FRC.CP <- cumprod(1 + FRC.return)
+LUV.CP <- cumprod(1 + LUV.return)
+
+# enplot <- plot(MGM.CP, type = "l", ylim = c(0, 3), col = "gold", main = "Closing Prices: MGM-Gold, FRC-Green, LUV-Red")
+# enplot <- lines(FRC.CP, type = "l", col = "green")
+# enplot <- lines(LUV.CP, type = "l", col = "red")
+# enplot
+#  # compared to market
+# enplotb <- plot(bench.CP, type = "l", ylim = c(0, 3), col = "black", main = "CP: Market-Black, MGM-Gold, FRC-Green, LUV-Red")
+# enplotb <- lines(MGM.CP, type = "l", col = "gold")
+# enplotb <- lines(FRC.CP, type = "l", col = "green")
+# enplotb <- lines(LUV.CP, type = "l", col = "red")
+# enplotb
+
+# beta and p/e
+# MGM
+MGM.Ret.df <- data.frame(MGM.return)
+MGM.Ret.df$date <- index(MGM.return)
+MGM.data <- merge(MGM.Ret.df, ff.new, by.x = "date", all.x = T)
+
+# FRC
+FRC.Ret.df <- data.frame(FRC.return)
+FRC.Ret.df$date <- index(FRC.return)
+FRC.data <- merge(FRC.Ret.df, ff.new, by.x = "date", all.x = T)
+
+# LUV
+LUV.Ret.df <- data.frame(LUV.return)
+LUV.Ret.df$date <- index(LUV.return)
+LUV.data <- merge(LUV.Ret.df, ff.new, by.x = "date", all.x = T)
+## beta & r^2
+
+# MGM
+MGM.excess <- MGM.return - ff.newnew$RF
+MGM.beta <- coefficients(lm(MGM.excess ~ bench.excess))[2]
+
+# FRC
+FRC.excess <- FRC.return - ff.newnew$RF
+FRC.beta <- coefficients(lm(FRC.excess ~ bench.excess))[2]
+
+# LUV
+LUV.excess <- LUV.return - ff.newnew$RF
+LUV.beta <- coefficients(lm(LUV.excess ~ bench.excess))[2]
+
+PEMGM <- 12.86
+PEFRC <- 1.68
+PELUV <- 36.95
+
+MGMyahbeta <- 2.07
+FRCyahbeta <- 1.01
+LUVyahbeta <- 1.14
+```
+
+
+
+```{r echo=FALSE}
+# SLB, HAL, CNP
+engplt <- ggplot() + geom_line(data = SLB.CP, aes(x = index(SLB.CP), y = daily.returns, color = "SLB")) + geom_line(data = HAL.CP, aes(x = index(HAL.CP), y = daily.returns, color = "HAL")) + geom_line(data = CNP.CP, aes(x = index(CNP.CP), y = daily.returns, color = "CNP")) + ggtitle("Closing Prices") + xlab("Date") + scale_color_manual(name = "Stock", values = c("SLB" = "blue", "HAL" = "red", "CNP" = "green"))
+engplt
+
+engmrkplt <- ggplot() + geom_line(data = SLB.CP, aes(x = index(SLB.CP), y = daily.returns, color = "SLB")) + geom_line(data = HAL.CP, aes(x = index(HAL.CP), y = daily.returns, color = "HAL")) + geom_line(data = CNP.CP, aes(x = index(CNP.CP), y = daily.returns, color = "CNP")) + geom_line(data = bench.CP, aes(x = index(bench.CP), y = daily.returns, color = "Market")) + ggtitle("Closing Prices") + xlab("Date") + scale_color_manual(name = "Stock", values = c("SLB" = "blue", "HAL" = "red", "CNP" = "green", "Market" = "black"))
+engmrkplt
+```
+
+\newpage
+
+```{r echo=FALSE}
+# LOW, TGT, WMT
+# blue red green
+stoplt <- ggplot() + geom_line(data = LOW.CP, aes(x = index(LOW.CP), y = daily.returns, color = "LOW")) + geom_line(data = TGT.CP, aes(x = index(TGT.CP), y = daily.returns, color = "TGT")) + geom_line(data = WMT.CP, aes(x = index(WMT.CP), y = daily.returns, color = "WMT")) + ggtitle("Closing Prices") + xlab("Date") + scale_color_manual(name = "Stock", values = c("LOW" = "blue", "TGT" = "red", "WMT" = "green"))
+stoplt
+
+stomrkplt <- ggplot() + geom_line(data = LOW.CP, aes(x = index(LOW.CP), y = daily.returns, color = "LOW")) + geom_line(data = TGT.CP, aes(x = index(TGT.CP), y = daily.returns, color = "TGT")) + geom_line(data = WMT.CP, aes(x = index(WMT.CP), y = daily.returns, color = "WMT")) + geom_line(data = bench.CP, aes(x = index(bench.CP), y = daily.returns, color = "Market")) + ggtitle("Closing Prices") + xlab("Date") + scale_color_manual(name = "Stock", values = c("LOW" = "blue", "TGT" = "red", "WMT" = "green", "Market" = "black"))
+stomrkplt
+```
+
+\newpage
+
+```{r echo=FALSE}
+# MGM, FRC, LUV
+# gold green red
+chplt <- ggplot() + geom_line(data = MGM.CP, aes(x = index(MGM.CP), y = daily.returns, color = "MGM")) + geom_line(data = FRC.CP, aes(x = index(FRC.CP), y = daily.returns, color = "FRC")) + geom_line(data = LUV.CP, aes(x = index(LUV.CP), y = daily.returns, color = "LUV")) + ggtitle("Closing Prices") + xlab("Date") + scale_color_manual(name = "Stock", values = c("MGM" = "gold", "FRC" = "green", "LUV" = "red"))
+chplt
+
+chmrkplt <- ggplot() + geom_line(data = MGM.CP, aes(x = index(MGM.CP), y = daily.returns, color = "MGM")) + geom_line(data = FRC.CP, aes(x = index(FRC.CP), y = daily.returns, color = "FRC")) + geom_line(data = LUV.CP, aes(x = index(LUV.CP), y = daily.returns, color = "LUV")) + geom_line(data = bench.CP, aes(x = index(bench.CP), y = daily.returns, color = "Market")) + ggtitle("Closing Prices") + xlab("Date") + scale_color_manual(name = "Stock", values = c("MGM" = "gold", "FRC" = "green", "LUV" = "red", "Market" = "black"))
+chmrkplt
+```
+
+\newpage
+
+
+```{r echo=FALSE}
+# try to get all on same table (company, symbol, return, risk, beta, p/e)
+# Sclumberger Ltd. (SLB)
+# Halliburton Company (HAL)
+# CenterPoint Energy Inc.(CNP)
+# Lowe's Companies, Inc. (LOW)
+# Target Corporation (TGT)
+# Walmart Inc. (WMT)
+# MGM Resorts International (MGM)
+# First Republic Bank (FRC)
+# Southwest Airlines Co. (LUV)
+financedata <- data.frame(Company = c( "Sclumberger Ltd.", "Halliburton Company", "CenterPoint Energy Inc.", "Lowe\'s Companies, Inc.", "Target Corporation", "Walmart Inc.", "MGM Resorts International", "First Republic Bank", "Southwest Airlines Co."), 
+                          Symbol = c("SLB", "HAL", "CNP", "LOW", "TGT", "WMT", "MGM", "FRC", "LUV"), 
+                          Return = round(c(SLB.mu.ann, HAL.mu.ann, CNP.mu.ann, LOW.mu.ann, TGT.mu.ann, WMT.mu.ann, MGM.mu.ann, FRC.mu.ann, LUV.mu.ann), 4)*100, 
+                          Risk = round(c(SLB.sd.ann, HAL.sd.ann, CNP.sd.ann, LOW.sd.ann, TGT.sd.ann, WMT.sd.ann, MGM.sd.ann, FRC.sd.ann, LUV.sd.ann), 4)*100, 
+                          Beta = round(c(SLB.beta, HAL.beta, CNP.beta, LOW.beta, TGT.beta, WMT.beta, MGM.beta, FRC.beta, LUV.beta), 2), 
+                          PE = round(c(PESLB, PEHAL, PECNP, PELOW, PETGT, PEWMT, PEMGM, PEFRC, PELUV), 2))
+financedata$Return <- paste0(as.matrix(financedata$Return), "%")
+financedata$Risk <- paste0(as.matrix(financedata$Risk), "%")
+#financedata
+kable_styling(kbl(financedata, booktabs = T, format = "latex"), latex_options = "striped")
+```
+
+**Out of SLB, HAL, and CNP, SLB has the highest annualized expected return and a lower risk than HAL. CNP has the lowest return and the lowest risk. HAL is the most volatile out of the three stocks. SLB also has the highest PE Ratio compared to HAL and CNP.**  
+
+**Between LOW, TGT, and WMT, LOW has the highest annualized expected return and the second lowest risk. TGT has a negative return but is the most volatile and has the second highest PE Ratio. WMT has the second lowest return, but has the lowest risk and highest PE Ratio out of the three stocks.**  
+
+**When comparing last three stocks, MGM has the highest annualized expected return compared to FRC and LUV who both have negative returns; however, MGM does have the highest risk out of the three but is also the most volatile. LUV has the lowest return and beta but has the highest PE ratio.**  
+
+**When comparing all nine stocks, SLB has the highest annualized expected return and the second highest annualized expected risk. LUV has the lowest return but the highest PE ratio. MGM is the most volatile and WMT is the least volatile.**
+
+
+
+
